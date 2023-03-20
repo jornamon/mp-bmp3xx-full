@@ -127,3 +127,5 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+mpbridge.ignore
+bmp3xx_test.py
