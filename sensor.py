@@ -5,21 +5,28 @@ try:
 except ImportError:
     pass
 
+try:
+    from loop_profiler import Profiler
+except ImportError:
+    profiler_debug = False
+else:
+    profiler_debug = True
+
 import math
 import time
 from collections import OrderedDict
-from loop_profiler import Profiler
 from machine import Pin
 
 
 class SensorError(Exception):
     pass
 
+
 class InfoUnit:
     """Represents basic unit of information inside a Container"""
 
     allowed_iu_types = ("config", "data", "frame", "command")
-    
+
     # Additional to those enforced in __init__
     mandatory_parameters = {
         "data": (),
@@ -27,17 +34,19 @@ class InfoUnit:
         "frame": (),
         "command": ("pack"),
     }
-    
+
     def unimplemented_pack(self, value):
         """Unimplemented pack method to catch some potential errors"""
-        raise SensorError(f"Unexpected use of pack method for InfoUnit {self.name}, please check configuration of the InfoUnit or implement the correct pack method")
- 
+        raise SensorError(
+            f"Unexpected use of pack method for InfoUnit {self.name}, please check configuration of the InfoUnit or implement the correct pack method"
+        )
+
     def __init__(
         self,
         *,
         name: str,
         iu_type: str,
-        container: Container,                   
+        container: Container,
         size_bits: int,
         shift: int,
         pack: Callable = unimplemented_pack,
@@ -48,25 +57,25 @@ class InfoUnit:
     ):
         """InfoUnit init.
 
-                All arguments must be keyword arguments.
+        All arguments must be keyword arguments.
 
-                Args:
-                    name: Name of the info unit, ideally same as datasheet.
-                    iu_type: Type of info unit, e.g. config, data.
-                    container: Container (Register, Frame, others?) object where the InfoUnit belongs. 
-                        Updated later at sensor initialization.
-                    size_bits: Size of the info unit in bits
-                    shift: Possition respect to the container (left shift).
-                    pack: Function that translates or packs the human readable value into the actual content stored into the Container. 
-                        First argument is always the InfoUnit, which needs to be passed explicitly in the call.
-                    unpack: Function that translates or unpacks the actual content stored into the Container into the human readable value. 
-                        First argument is always the InfoUnit, which needs to be passed explicitly in the call.
-                    default: Default (human readable) value for the info unit.
-                    allowed: Human readable allowed values for this InfoUnit. 
-                        Usually an iterable with allowed values, but depends on InfoUnit semantics.
-                    help: Help string explaining the info unit, useful for error messages.       
+        Args:
+            name: Name of the info unit, ideally same as datasheet.
+            iu_type: Type of info unit, e.g. config, data.
+            container: Container (Register, Frame, others?) object where the InfoUnit belongs.
+                Updated later at sensor initialization.
+            size_bits: Size of the info unit in bits
+            shift: Possition respect to the container (left shift).
+            pack: Function that translates or packs the human readable value into the actual content stored into the Container.
+                First argument is always the InfoUnit, which needs to be passed explicitly in the call.
+            unpack: Function that translates or unpacks the actual content stored into the Container into the human readable value.
+                First argument is always the InfoUnit, which needs to be passed explicitly in the call.
+            default: Default (human readable) value for the info unit.
+            allowed: Human readable allowed values for this InfoUnit.
+                Usually an iterable with allowed values, but depends on InfoUnit semantics.
+            help: Help string explaining the info unit, useful for error messages.
         """
-        
+
         self.name = name
         self.iu_type = iu_type
         self.container = container
@@ -79,7 +88,7 @@ class InfoUnit:
         self.help = help
 
         # Updated in Sensor._init_data_structure(). Not strictly needed but makes code more readable
-        self.sensor: Sensor 
+        self.sensor: Sensor
         # Mask, usually 0b111....1 size of the data for AND operations
         self.mask = int("1" * self.size_bits, 2) if self.size_bits > 0 else 1
         # Number of bytes that have to be read to access this InfoUnit
@@ -87,7 +96,9 @@ class InfoUnit:
 
         # Some consistency checks
         if iu_type not in InfoUnit.allowed_iu_types:
-            raise SensorError(f"Info unit type must be one of {InfoUnit.allowed_iu_types}")
+            raise SensorError(
+                f"Info unit type must be one of {InfoUnit.allowed_iu_types}"
+            )
 
         # Check if mandatory arguments are provided
         for arg in InfoUnit.mandatory_parameters[self.iu_type]:
@@ -97,34 +108,37 @@ class InfoUnit:
                 )
         # Check if pack and unpack methos are actually callable
         if not callable(pack) or not callable(unpack):
-            raise SensorError(f"Info Unit {self.name} pack or unpack methods are not callable, please review config.")
-   
+            raise SensorError(
+                f"Info Unit {self.name} pack or unpack methods are not callable, please review config."
+            )
+
     def read(self, reg_value: int) -> Any:
         """Returns the human readable content of the InfoUnit, given the register value.
         The reg_value is the register value in with the InfoUnit lives"""
 
         iu_content = reg_value >> self.shift & self.mask
         return self.unpack(iu_content)
-        
 
     def write(self, iu_value: Any) -> int:
         """Returns the int value that need to be stored in the Container / Register for the requested InfoUnit human-readable value
         The returned value is ready to be ORed with the values from the other InfoUnits"""
-        
+
         if iu_value is None or iu_value == "default":
             iu_value = self.default
         self._check_params(iu_value)
         iu_content = self.pack(iu_value)
         reg_iu_content = (iu_content & self.mask) << self.shift
-        self.sensor._debug_print("IU.write",'iu_name', self.name, 'iu_value', iu_value,'iu_content',iu_content,'reg_iu_content',reg_iu_content) # fmt: skip
+        self.sensor._debug_print("IU.write",'iu_name', self.name, 'iu_value', iu_value,'iu_content',iu_content,'reg_iu_content',reg_iu_content)  # fmt: skip
         return reg_iu_content
-    
+
     def _check_params(self, iu_value: Any) -> bool:
         """Checks requested value against allowed values. Raise exception if it fails"""
         if not iu_value in self.allowed:
-            raise SensorError(f"Parameter '{self.name}' must be in {self.allowed}. Was '{iu_value}' \nParameter help: {self.help}")
+            raise SensorError(
+                f"Parameter '{self.name}' must be in {self.allowed}. Was '{iu_value}' \nParameter help: {self.help}"
+            )
         return True
-        
+
     def _pretty_print(self):
         """Human representation of info unit object"""
 
@@ -150,25 +164,37 @@ class Container:
 
 
 class Register(Container):
-    """Represents a register inside the sensor, can be a single register or a group 
-    to facilitate addressing multi regiter values"""
-    
-    # Allowed types of registers, checked at __init__
-    allowed_types = ("config", "data", "command",)  
+    """Represents a register inside the sensor, can be a single register or a group
+    to facilitate addressing multi regiter values
 
-    def __init__(self, name: str, container_type: str, address: int, permission: str, size_bytes: int, help: str):
+    """
+
+    # Allowed types of registers, checked at __init__
+    allowed_types = (
+        "config",
+        "data",
+        "command",
+    )
+
+    def __init__(
+        self,
+        name: str,
+        container_type: str,
+        address: int,
+        permission: str,
+        size_bytes: int,
+        help: str,
+    ):
         self.name = name  # Name of the register, ideally same as datasheet
         self.container_type = container_type  # Type of register e.g. config, data,
         self.address = address  # Base address of the register
         self.permission = permission  # Operations allowed on register: RO, WO, RW (Read Only, Write Only, Read/Write)
         self.size_bytes = size_bytes  # Size of the register usefull if you want to read/write several registers as one, like with values that span several registers
-        self.help = (
-            help  # Help string explaining the register, useful for error messages
-        )
+        self.help = help  # Help string explaining the register, useful for error messages
         # The sensor to which the register belongs, to facilitate drilling up/down. Updated later at sensor initialization
-        self.sensor: Sensor 
+        self.sensor: Sensor
         # List of info units contained in this register. Updated later ar sensor initialization
-        self.info_units: list[InfoUnit] = []  
+        self.info_units: list[InfoUnit] = []
 
         # Consistency checks
         if container_type not in Register.allowed_types:
@@ -208,7 +234,7 @@ class Frame(Container):
         representation: str,
         error_count: int,
         container_type: str,
-        explaining: str,
+        help: str,
     ):
         self.name = name  # Name of the frame, ideally same as datasheet
         self.header = header  # Header that identifies this type of frame
@@ -216,7 +242,7 @@ class Frame(Container):
         self.representation = representation  # Graphical representation of this kind of frame (for debug purposes)
         self.error_count = error_count  # If this type of frame counts as an error
         self.container_type = container_type  # Type of frame e.g. config, data,
-        self.help = explaining
+        self.help = help
         self.sensor: Sensor  # The sensor to which the frame belongs, to facilitate drilling up/down. Updated later at sensor initialization
         self.info_units = (
             []
@@ -255,20 +281,28 @@ class Sensor:
         self._sensor_registers: dict[str, Register] = OrderedDict()
         self._sensor_info_units: dict[str, InfoUnit] = OrderedDict()
         self._sensor_frames: dict[int, Frame] = OrderedDict()
-        self._endianness: Literal['little', 'big']
+        self._endianness: Literal["little", "big"]
         self._debug_print_enable = debug_print
         self._config_presets: dict[str, dict[str, Any]] = {}
-        self.pfl = Profiler(active=True, name="sensor.py")  # DEBUG
+        if profiler_debug:
+            self.pfl = Profiler(active=True, name="sensor.py")  # DEBUG
         bus_name = bus.__class__.__name__
-        if bus_name in ('I2C', 'SoftI2C'):
+        if bus_name in ("I2C", "SoftI2C"):
             self._bus = I2CBUS(self, bus, **kwargs)
-        elif bus_name in ('SPI', 'SoftSPI'):
-            raise NotImplementedError("SPI BUS not implemented yet")
+        elif bus_name in ("SPI", "SoftSPI"):
+            try:
+                spi_cs = kwargs["spi_cs"]
+            except KeyError:
+                raise SensorError(
+                    "You must provide CS Pin (machine.Pin object) as `spi_cs` keyword argument "
+                )
+            self._bus = SPIBUS(self, bus, spi_cs=spi_cs)
         else:
-            raise NotImplementedError("Unrecognized bus type. This sensor must be initialized "
-                                      "passing a bus object (machine.I2C, machine.SPI, etc.)")
-            
-        
+            raise NotImplementedError(
+                "Unrecognized bus type. This sensor must be initialized "
+                "passing a bus object (machine.I2C, machine.SPI, etc.)"
+            )
+
     def _init_data_structure(self):
         """
         Creates Sensor data structures and relationships.
@@ -286,28 +320,28 @@ class Sensor:
 
         #: Sensor data structure must be in a file named sensorname_data_structure.py
         ds = __import__(self.name.lower() + "_data_structure")
-        
+
         for reg_dict in ds.REGISTERS:
             reg = Register(**reg_dict)
             reg.sensor = self
             self._sensor_registers[reg.name] = reg
-        
+
         for frame_dict in ds.FRAMES:
             frame = Frame(**frame_dict)
             frame.sensor = self
             self._sensor_frames[frame.header] = frame
             name_to_header.update({frame.name: frame.header})
-        
+
         for iu_dict in ds.INFO_UNITS:
             iu = InfoUnit(**iu_dict)
             iu.sensor = self
-            if iu.iu_type == 'frame':
+            if iu.iu_type == "frame":
                 cont_dict = self._sensor_frames
                 cont_key = name_to_header[iu.container]
             else:
                 cont_dict = self._sensor_registers
                 cont_key = iu.container
-            
+
             try:
                 # Replace str with reference to the Container
                 iu.container = cont_dict[cont_key]  # type: ignore
@@ -317,13 +351,12 @@ class Sensor:
                 )
             iu.container.info_units.append(iu)
             self._sensor_info_units[iu.name] = iu
-        
+
         try:
             self._config_presets = ds.CONFIG_PRESETS.copy()
         except AttributeError:
             pass
-        
-            
+
     def _pretty_print(self):
         """Human representation of Sensor object."""
 
@@ -335,24 +368,35 @@ class Sensor:
         print("- Help:", self.help)
         print(
             "- Config registers:",
-            tuple(reg.name for reg in self._sensor_registers.values() if reg.container_type == "config"),
+            tuple(
+                reg.name
+                for reg in self._sensor_registers.values()
+                if reg.container_type == "config"
+            ),
         )
         print(
             "- Data registers:",
-            tuple(reg.name for reg in self._sensor_registers.values() if reg.container_type == "data"),
+            tuple(
+                reg.name
+                for reg in self._sensor_registers.values()
+                if reg.container_type == "data"
+            ),
         )
         print(
             "- Config Info units:",
-            tuple(iu.name for iu in self._sensor_info_units.values() if iu.iu_type == "config"),
+            tuple(
+                iu.name
+                for iu in self._sensor_info_units.values()
+                if iu.iu_type == "config"
+            ),
         )
         print(
             "- Data Info units:",
-            tuple(iu.name for iu in self._sensor_info_units.values() if iu.iu_type == "data"),
+            tuple(
+                iu.name for iu in self._sensor_info_units.values() if iu.iu_type == "data"
+            ),
         )
-        print(
-            "- Frames:", 
-            tuple(frame.name for frame in self._sensor_frames.values())
-        )
+        print("- Frames:", tuple(frame.name for frame in self._sensor_frames.values()))
 
     def info(self, arg=None):
         """Prints sensor info"""
@@ -418,14 +462,18 @@ class Sensor:
     def _read_register_list(self, reg_list: Iterable[Register]) -> dict:
         """Reads a register list and returns a dict with all info unit contents."""
 
-        self.pfl.begin('_read_register_list')  # DEBUG
+        if profiler_debug:
+            self.pfl.begin("_read_register_list")  # DEBUG
         result = OrderedDict()
         self._debug_print("_read_register_list:", "reg_list", tuple(reg.name for reg in reg_list))  # fmt: skip
         for reg in reg_list:
-            self.pfl.begin('Each register read')  # DEBUG
+            if profiler_debug:
+                self.pfl.begin("Each register read")  # DEBUG
             result.update(reg.read())
-            self.pfl.end('Each register read')  # DEBUG
-        self.pfl.end('_read_register_list')  # DEBUG
+            if profiler_debug:
+                self.pfl.end("Each register read")  # DEBUG
+        if profiler_debug:
+            self.pfl.end("_read_register_list")  # DEBUG
         return result
 
     def config_read(self, *params, print_result=False):
@@ -433,9 +481,9 @@ class Sensor:
         if not params:
             # No explicit parameter request, return all config
             affected_registers: set[Register] = set(
-                    reg
-                    for reg in self._sensor_registers.values()
-                    if reg.container_type == "config"
+                reg
+                for reg in self._sensor_registers.values()
+                if reg.container_type == "config"
             )
             self._debug_print("config_read:", "aff_regs", tuple(r.name for r in affected_registers))  # fmt: skip
             result = self._read_register_list(affected_registers)
@@ -446,36 +494,38 @@ class Sensor:
             # List of parameters requested, return only those
             self._check_params(*params)
             affected_registers: set[Register] = set(
-                    iu.container
-                    for iu in self._sensor_info_units.values()
-                    if iu.name in params and iu.iu_type == "config"
-            ) # type: ignore
+                iu.container
+                for iu in self._sensor_info_units.values()
+                if iu.name in params and iu.iu_type == "config"
+            )  # type: ignore
             all_results = self._read_register_list(affected_registers)
             requested_results = {
                 key: value for key, value in all_results.items() if key in params
             }
             if print_result:
                 self._print_configs(CURRENT=requested_results)
-                
+
             return requested_results
 
     def data_read(self, *params, print_result=False) -> dict:
         """Reads an arbitrary list of data info units"""
         # TODO Consider allow reading data and config together. Would it be useful or confusing?
 
-        self.pfl.begin('data_read')  # DEBUG
+        if profiler_debug:
+            self.pfl.begin("data_read")  # DEBUG
 
         self._debug_print("data_read:", "args", params)  # fmt: skip
         if not params:
-            self.pfl.end('data_read')  # DEBUG
+            if profiler_debug:
+                self.pfl.end("data_read")  # DEBUG
             return {}
         else:
             self._check_params(*params)
             affected_registers: set[Register] = set(
-                    iu.container
-                    for iu in self._sensor_info_units.values()
-                    if iu.name in params and iu.iu_type == "data"
-            ) # type: ignore
+                iu.container
+                for iu in self._sensor_info_units.values()
+                if iu.name in params and iu.iu_type == "data"
+            )  # type: ignore
             self._debug_print("data_read:", "aff_regs", affected_registers)  # fmt: skip
             if not affected_registers:
                 print("Sensor.data_read(): No matching data")
@@ -483,12 +533,15 @@ class Sensor:
             all_results = self._read_register_list(affected_registers)
             self._debug_print("data_read:", "all_results")  # fmt: skip
             self._debug_print(all_results)  # fmt: skip
-            requested_results = {key: value for key, value in all_results.items() if key in params}
-            
+            requested_results = {
+                key: value for key, value in all_results.items() if key in params
+            }
+
             if print_result:
                 self._print_configs(VALUE=requested_results)
 
-            self.pfl.end('data_read')  # DEBUG
+            if profiler_debug:
+                self.pfl.end("data_read")  # DEBUG
 
             return requested_results
 
@@ -498,8 +551,9 @@ class Sensor:
         new_config: dict,
     ) -> None:
         """Write the info provided in new_config dict to a set of affected registers"""
-        
-        self.pfl.begin('_write_register_list')  # DEBUG
+
+        if profiler_debug:
+            self.pfl.begin("_write_register_list")  # DEBUG
         self._debug_print("_write_register_list", "new_config", new_config)  # fmt: skip
         for reg in affected_registers:
             reg_value = 0
@@ -508,32 +562,33 @@ class Sensor:
                 iu_content = iu.write(iu_value)
                 reg_value |= iu_content
                 self._debug_print("_write_register_list", "iu", iu.name, "iu_value", iu_value, "iu_content", iu_content, "reg_value", reg_value)  # fmt: skip
-            
+
             reg_content = reg_value.to_bytes(reg.size_bytes, self._endianness)
             self._debug_print("_write_register_list reg_val", reg_value, "cont", reg_content)  # fmt: skip
             for i, b in enumerate(reg_content):
                 self._bus._write_reg(reg.address + i, b)
-        self.pfl.end('_write_register_list')  # DEBUG
+        if profiler_debug:
+            self.pfl.end("_write_register_list")  # DEBUG
 
-
-    def config_write(self, *, update: bool =True, print_result: bool = True, **parameters) -> dict:
+    def config_write(
+        self, *, update: bool = True, print_result: bool = True, **parameters
+    ) -> dict:
         """
         Takes parameters (info units name strings) as kwargs and update config accordingly.
         update = True  -> Updates only the provided parameters, using current config as base.
         update = False -> Takes parameters defaults, updates it with provided parameters and applies it.
         Returns the applied config.
         """
-        # TODO Check for errors and/or inconsistencies
-        self.pfl.begin('config_write')  # DEBUG
+        if profiler_debug:
+            self.pfl.begin("config_write")  # DEBUG
         self._check_params(*parameters.keys())
         affected_registers: Iterable[Register] = set(
-                    iu.container
-                    for iu in self._sensor_info_units.values()
-                    if iu.name in parameters.keys() and iu.iu_type == "config"
-        ) # type: ignore
-        previous_config = self._read_register_list(affected_registers) # type: ignore
+            iu.container
+            for iu in self._sensor_info_units.values()
+            if iu.name in parameters.keys() and iu.iu_type == "config"
+        )  # type: ignore
+        previous_config = self._read_register_list(affected_registers)  # type: ignore
 
-        
         if update:
             # Current sensor configuration updated with provided parameters
             base_config = previous_config.copy()
@@ -545,7 +600,7 @@ class Sensor:
             base_config = {
                 iu.name: iu.default
                 for iu in self._sensor_info_units.values()
-                if iu.container in affected_registers and iu.iu_type == "config" # type: ignore
+                if iu.container in affected_registers and iu.iu_type == "config"  # type: ignore
             }
             new_config = base_config.copy()
             new_config.update(parameters)
@@ -554,35 +609,36 @@ class Sensor:
         if print_result:
             print("\nconfig_write update mode = ", update)
             self._print_configs(
-                PREVIOUS=previous_config, 
+                PREVIOUS=previous_config,
                 BASE=base_config,
                 NEW=new_config,
-                REQUESTED=parameters
+                REQUESTED=parameters,
             )
             print()
 
         time.sleep_ms(1)
         self._check_sensor_config(new_config)
         self._check_applied_config(new_config)
-        
-        self.pfl.end('config_write')  # DEBUG
+
+        if profiler_debug:
+            self.pfl.end("config_write")  # DEBUG
         return new_config
-    
+
     def softreset(self):
         """To be overwritten in subclass if softreset of the device is possible"""
         pass
-    
+
     def apply_config_preset(self, preset: str) -> None:
-        
+
         if preset not in self._config_presets:
             raise SensorError(
                 "The requested preset does not exist. Available presets are: \n"
                 f"{tuple(self._config_presets.keys())}"
             )
-        
+
         self.softreset()
         time.sleep_ms(5)
-        self._debug_print("apply_config_preset: Applying", preset)  
+        self._debug_print("apply_config_preset: Applying", preset)
         preset_dict = self._config_presets.get(preset)
         self.config_write(print_result=False, **preset_dict)
 
@@ -590,36 +646,42 @@ class Sensor:
         """Read current config to check if the requested config was correctly applied"""
         # TODO consider delete after testing or at least make it optional
         error = False
-        exceptions = ('forced',)  # Values that shouldn't be checked for some reason
+        exceptions = ("forced",)  # Values that shouldn't be checked for some reason
         returned = self.config_read(*requested.keys())
         self._debug_print(f"_check_applied_config:")  # fmt: skip
         if self._debug_print_enable:
             self._print_configs(REQUESTED=requested, RETURNED=returned)
         for key, value in requested.items():
             if value != returned[key] and value not in exceptions:
-                print(f"ERROR: {key} Requested: {str(value)} || Sensor: {str(returned[key])}")
+                print(
+                    f"ERROR: {key} Requested: {str(value)} || Sensor: {str(returned[key])}"
+                )
                 error = True
         if error:
-            raise SensorError("The requested configuration was not fully applied. "
-                              "Details should precede this Traceback")
-        
+            raise SensorError(
+                "The requested configuration was not fully applied. "
+                "Details should precede this Traceback"
+            )
+
     def _print_configs(self, **configs: dict[str, dict]):
         """Pretty prints config(s).
-        
+
         Only accepts config dicts as kwargs.
         The name of the parameter will be its column header, so it matters.
         Can print one configuration or several in adjacent columns, usefull to compare config changes.
-        
+
         Example:
             `self._print_configs(PREVIOUS=prev_conf_dict, NEW=new_conf_dict)`
         """
         # Aesthetics variables
         col_width_first = 22
         col_width = 12
-        
+
         # Print headers
         print()
-        headers = ['PARAMETER',]
+        headers = [
+            "PARAMETER",
+        ]
         headers.extend(configs.keys())
         for i, header in enumerate(headers):
             if i == 0:
@@ -627,35 +689,39 @@ class Sensor:
             else:
                 print(f"{header:^{col_width}}", end="")
         print()
-        
+
         # Print content
         all_keys = set()
         for d in configs.values():
             all_keys.update(d.keys())
-        
+
         for key in sorted(all_keys):
             print(f"{key:{col_width_first}}", end="")
             for d in configs.values():
-                key_value = str(d.get(key,"-"))
+                key_value = str(d.get(key, "-"))
                 print(f"{key_value:^{col_width}}", end="")
             print()
-    
+
     def _check_sensor_config(self, applied_config: dict):
         """Implements a sensor-specific config error check or other type of controls if exists.
-        
+
         Subclass must implement this method to trigger appropriate measures"""
         print("WARNING: _check_sensor_config should be overwritten by Sensor subclasses")
 
-class BUS():
+
+class BUS:
     """The BUS class is a component of the Sensor class that provides the methods to
     communicate with the device through the serial bus.
-    
+
     This base class must be extended by the specific bus subclass: I2C, SPI, UART, etc.
     where the real methods are implemented.
     """
+
+    # TODO: Consider using a preallocated buffer for bus read operations
+
     def __init__(self, **kwargs):
-        
-        pass
+        self._i2c_addr: int
+        self._spi_cs: Pin
 
     def _write_reg(self, reg_address, data):
         """Writes data into register"""
@@ -675,24 +741,23 @@ class BUS():
             "Low level register operation, not implemented in base class"
         )
 
+
 class I2CBUS(BUS):
-    """Provides the methods to write and read registers from the device using I2C.
-    """
+    """Provides the methods to write and read registers from the device using I2C."""
+
     def __init__(self, sensor: Sensor, i2c, i2c_addr: int = -1, **kwargs):
         super().__init__(**kwargs)
         self.sensor = sensor
         self.i2c = i2c  # I2C object
         if i2c_addr == -1:
             raise SensorError("Invalid or missing i2c_addr")
-        self._i2c_addr: int
-        self._spi_cs: Pin
 
     def _write_reg(self, reg_address, data):
         """Writes data into register"""
         if isinstance(data, int):
             data = bytes((data,))
         self.sensor._debug_print("_write_reg: addr", reg_address, "data", data)  # fmt: skip
-        self.i2c.writeto_mem(self._i2c_addr, reg_address, data) 
+        self.i2c.writeto_mem(self._i2c_addr, reg_address, data)
 
     def _read_reg(self, reg_address, length):
         """Reads from register n bytes and returns them"""
@@ -704,3 +769,60 @@ class I2CBUS(BUS):
         self.i2c.readfrom_mem_into(self._i2c_addr, reg_address, buf)
         self.sensor._debug_print("_read_reg_into: addr", reg_address, "buf length", len(buf))  # fmt: skip
         return len(buf)
+
+
+class SPIBUS(BUS):
+    """Provides the methods to write and read registers from the device using SPI."""
+
+    # TODO Use Signal instead of Pin to allow CS active low or high
+    def __init__(self, sensor: Sensor, spi, spi_cs: Pin | None = None, **kwargs):
+        super().__init__(**kwargs)
+        self.sensor = sensor
+        self.spi = spi  # SPI object
+        if spi_cs is None:
+            raise SensorError("Invalid or missing spi_cs Pin")
+        else:
+            self.spi_cs = spi_cs
+        spi_cs.value(1)  # Deactivate CS
+
+    def _write_reg(self, reg_address: int, data: int | bytes):
+        """Writes data into register"""
+        _debug_object("_write_reg", "data", data, do_print=False)
+        self.spi_cs.value(0)  # Activate CS
+        if isinstance(data, int):
+            self.spi.write(bytes((reg_address & 0x7F, data)))
+        else:
+            self.spi.write = bytes(reg_address & 0x7F) + data
+        self.spi_cs.value(1)
+
+    def _read_reg(self, reg_address, length):
+        """Reads from register n bytes and returns them"""
+        self.spi_cs.value(0)  # Activate CS
+        # Write one extra byte to avoid the first dummy byte that the sensor sends on each read
+        seven_addr = bytes((reg_address | 0x80, 0x00))
+        self.spi.write(seven_addr)
+        result = self.spi.read(length)
+        self.spi_cs.value(1)
+        _debug_object("SPIBUS._read_reg", "result", result, do_print=False)
+        return result
+
+    def _read_reg_into(self, reg_address, buf):
+        """Reads register into existing buffer, returns bytes read"""
+        print("_read_reg_into: reg_address", reg_address, "type:", type(reg_address))
+        self.spi_cs.value(0)  # Activate CS
+        self.spi.write(bytes((reg_address | 0x80, 0x00)))
+        self.spi.readinto(buf)
+        self.spi_cs.value(1)
+        print("_read_reg_into: buf", buf, "type:", type(buf), "len", len(buf))
+
+
+def _debug_object(func_str: str, obj_str: str, obj: Any, do_print: bool = True):
+    """Prints information of an object for debug purposes"""
+    if do_print:
+        print("[DEBUG object]")
+        print("Function:", func_str, "\tObject:", obj_str)
+        print(
+            "Type:", type(obj), "\tLength:", len(obj) if hasattr(obj, "__len__") else "--"
+        )
+        print("Value:", obj, "HEX" + str(hex(obj)) if isinstance(obj, int) else "")
+        print("[------------]")
