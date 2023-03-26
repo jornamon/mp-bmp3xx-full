@@ -5,6 +5,9 @@ try:
 except ImportError:
     pass
 
+# DEBUG: Try to import loop profiler and set variable to control if it used
+# Only to allow using the driver with or without de loop profiler
+# Erase after complete debug
 try:
     from loop_profiler import Profiler
 except ImportError:
@@ -565,8 +568,7 @@ class Sensor:
 
             reg_content = reg_value.to_bytes(reg.size_bytes, self._endianness)
             self._debug_print("_write_register_list reg_val", reg_value, "cont", reg_content)  # fmt: skip
-            for i, b in enumerate(reg_content):
-                self._bus._write_reg(reg.address + i, b)
+            self._bus._write_reg(reg.address, reg_content)
         if profiler_debug:
             self.pfl.end("_write_register_list")  # DEBUG
 
@@ -629,7 +631,15 @@ class Sensor:
         pass
 
     def apply_config_preset(self, preset: str) -> None:
+        """Applies a preset configuration template.
 
+        Configuration templates are defined in the sensor _data_structure file
+
+        Args:
+            preset (str): The preset name we want to apply
+        Raises:
+            SensorError: If config template is not found
+        """
         if preset not in self._config_presets:
             raise SensorError(
                 "The requested preset does not exist. Available presets are: \n"
@@ -745,19 +755,22 @@ class BUS:
 class I2CBUS(BUS):
     """Provides the methods to write and read registers from the device using I2C."""
 
-    def __init__(self, sensor: Sensor, i2c, i2c_addr: int = -1, **kwargs):
+    def __init__(self, sensor: Sensor, i2c, **kwargs):
         super().__init__(**kwargs)
         self.sensor = sensor
         self.i2c = i2c  # I2C object
-        if i2c_addr == -1:
-            raise SensorError("Invalid or missing i2c_addr")
+        self.i2c_addr: int  # Subclass must initialize this address
 
-    def _write_reg(self, reg_address, data):
-        """Writes data into register"""
+    def _write_reg(self, reg_address: int, data: int | bytes):
+        """Writes data into register
+
+        Accepts a bytes object or an int in range(0, 256)
+        """
         if isinstance(data, int):
-            data = bytes((data,))
-        self.sensor._debug_print("_write_reg: addr", reg_address, "data", data)  # fmt: skip
-        self.i2c.writeto_mem(self._i2c_addr, reg_address, data)
+            self.i2c.writeto_mem(self._i2c_addr, reg_address, bytes(data,))  # fmt: skip
+        else:
+            for i, b in enumerate(data):
+                self.i2c.writeto_mem(self._i2c_addr, reg_address + i, bytes((b,)))
 
     def _read_reg(self, reg_address, length):
         """Reads from register n bytes and returns them"""
@@ -779,26 +792,32 @@ class SPIBUS(BUS):
         super().__init__(**kwargs)
         self.sensor = sensor
         self.spi = spi  # SPI object
-        if spi_cs is None:
-            raise SensorError("Invalid or missing spi_cs Pin")
+        if not isinstance(spi_cs, Pin):
+            raise SensorError(
+                "Invalid or missing spi_cs Pin (must be a machine.Pin object)"
+            )
         else:
             self.spi_cs = spi_cs
         spi_cs.value(1)  # Deactivate CS
 
     def _write_reg(self, reg_address: int, data: int | bytes):
-        """Writes data into register"""
-        _debug_object("_write_reg", "data", data, do_print=False)
-        self.spi_cs.value(0)  # Activate CS
+        """Writes data into register
+
+        Accepts a bytes object or an int in range(0, 256)
+        """
         if isinstance(data, int):
-            self.spi.write(bytes((reg_address & 0x7F, data)))
-        else:
-            self.spi.write = bytes(reg_address & 0x7F) + data
+            data = bytes((data,))
+        self.spi_cs.value(0)  # Activate CS
+        # Write byte per byte
+        for i, b in enumerate(data):
+            to_register = bytes(((reg_address + i) & 0x7F, b))
+            self.spi.write(to_register)
         self.spi_cs.value(1)
 
     def _read_reg(self, reg_address, length):
         """Reads from register n bytes and returns them"""
         self.spi_cs.value(0)  # Activate CS
-        # Write one extra byte to avoid the first dummy byte that the sensor sends on each read
+        # Write one extra byte to wait to pass the first dummy byte that the sensor sends on each read
         seven_addr = bytes((reg_address | 0x80, 0x00))
         self.spi.write(seven_addr)
         result = self.spi.read(length)
@@ -824,5 +843,5 @@ def _debug_object(func_str: str, obj_str: str, obj: Any, do_print: bool = True):
         print(
             "Type:", type(obj), "\tLength:", len(obj) if hasattr(obj, "__len__") else "--"
         )
-        print("Value:", obj, "HEX" + str(hex(obj)) if isinstance(obj, int) else "")
+        print("Value:", obj, "HEX: " + str(hex(obj)) if isinstance(obj, int) else "")
         print("[------------]")
