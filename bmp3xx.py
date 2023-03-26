@@ -239,26 +239,23 @@ class BMP3XX(Sensor):
 
         self.name = "BMP3XX"
         self.help = "BMP3XX pressure and temperature sensor"
-        self._endianness: Literal[
-            "big", "little"
-        ] = "little"  # To pack and unpack bytes <-> ints
+        # To pack and unpack bytes <-> ints
+        self._endianness: Literal["big", "little"] = "little"
 
         # Calibrate later for better altitude accuracy
         self._sea_level_pressure = BMP3XX.STANDARD_SEA_LEVEL_PRESSURE_PA
 
         # Initializes a FIFO mirror buffer to dump sensor FIFO into during burst reads for later processing
         self._fifo_mirror = bytearray(512 + 4)
-        self._fifo_auto_queue: BMP3XXFIFO | None = (
-            None  # Reference to BMP3XXFIFO object if exists
-        )
+        # Reference to BMP3XXFIFO object if exists
+        self._fifo_auto_queue: BMP3XXFIFO | None = None
 
         # Call several methods to initialize the sensor correctly
         self._init_data_structure()
-        self._check_sensor()  # Check for sensor presence reading the chip ID register
-        self._get_calibration_data()  # Get and store calibration coefficients for future reading compensations
-        self.apply_config_preset(
-            "init"
-        )  # Basic config, bmp3xx boots up with sensors disabled.
+        self._check_sensor()
+        self._get_calibration_data()
+        # Basic config, bmp3xx boots up with sensors disabled.
+        self.apply_config_preset("init")
 
     # Some properties to allow ultra basic usage
     @property
