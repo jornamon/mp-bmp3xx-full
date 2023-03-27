@@ -7,8 +7,8 @@ object or an SPI object.
 from bmp3xx import BMP3XX
 from machine import Pin, I2C
 
-# I2C
-i2c = I2C(0, scl=Pin(9), sda=Pin(8))  # Depends on your board
+# I2C, use correct pins for your board and wiring
+i2c = I2C(0, scl=Pin(9), sda=Pin(8))
 sensor = BMP3XX(i2c)
 
 """
