@@ -403,18 +403,18 @@ class Sensor:
 
     def info(self, arg=None):
         """Prints sensor info"""
-        if not arg or arg == "sensor":
+        if not arg or arg.lower() == "sensor":
             self._pretty_print()
             print(
                 "To get info about Registers, Info Units or Frames use Sensor.info('registers'), Sensor.info('info_units') or Sensor.info('frames')"
             )
-        elif arg == "registers":
+        elif arg.lower() == "registers":
             for reg in self._sensor_registers.values():
                 reg._pretty_print()
-        elif arg == "info_units":
+        elif arg.lower() == "infounits":
             for iu in self._sensor_info_units.values():
                 iu._pretty_print()
-        elif arg == "frames":
+        elif arg.lower() == "frames":
             for frame in self._sensor_frames.values():
                 frame._pretty_print()
         else:
@@ -479,7 +479,7 @@ class Sensor:
             self.pfl.end("_read_register_list")  # DEBUG
         return result
 
-    def config_read(self, *params, print_result=False):
+    def config_read(self, *params, print_result=True):
         """Read current configuration. Return a dict with requested values or all if none specified"""
         if not params:
             # No explicit parameter request, return all config
@@ -492,6 +492,10 @@ class Sensor:
             result = self._read_register_list(affected_registers)
             self._debug_print("config_read:", "returned result dict")  # fmt: skip
             self._debug_print(result)  # fmt: skip
+
+            if print_result:
+                self._print_configs(CURRENT=result)
+
             return result
         else:
             # List of parameters requested, return only those
@@ -630,7 +634,7 @@ class Sensor:
         """To be overwritten in subclass if softreset of the device is possible"""
         pass
 
-    def apply_config_preset(self, preset: str) -> None:
+    def apply_config_preset(self, preset: str = None) -> None:
         """Applies a preset configuration template.
 
         Configuration templates are defined in the sensor _data_structure file
@@ -640,7 +644,12 @@ class Sensor:
         Raises:
             SensorError: If config template is not found
         """
-        if preset not in self._config_presets:
+        if not preset:
+            print("Available presets are:")
+            print(f"{tuple(self._config_presets.keys())}")
+            return
+
+        if not preset or preset not in self._config_presets:
             raise SensorError(
                 "The requested preset does not exist. Available presets are: \n"
                 f"{tuple(self._config_presets.keys())}"
@@ -657,7 +666,7 @@ class Sensor:
         # TODO consider delete after testing or at least make it optional
         error = False
         exceptions = ("forced",)  # Values that shouldn't be checked for some reason
-        returned = self.config_read(*requested.keys())
+        returned = self.config_read(*requested.keys(), print_result=False)
         self._debug_print(f"_check_applied_config:")  # fmt: skip
         if self._debug_print_enable:
             self._print_configs(REQUESTED=requested, RETURNED=returned)
@@ -822,7 +831,7 @@ class SPIBUS(BUS):
         self.spi.write(seven_addr)
         result = self.spi.read(length)
         self.spi_cs.value(1)
-        _debug_object("SPIBUS._read_reg", "result", result, do_print=False)
+        # _debug_object("SPIBUS._read_reg", "result", result, do_print=True)
         return result
 
     def _read_reg_into(self, reg_address, buf):

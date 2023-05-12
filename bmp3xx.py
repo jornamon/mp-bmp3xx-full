@@ -74,7 +74,7 @@ class BMP3XXFIFO:
 
     This class is intended to allow the user to use the device FIFO from a high level,
     hiding all the details of frame decoding and queue management. The user should be
-    able to simple gather continuous data from the device FIFO using the `get` method.
+    able to simply gather continuous data from the device FIFO using the `get` method.
 
     The `get`method returns a FrameData named tuple that contains pressure, temperature
     and altitude information when applicable or None. The named tuple elements can be
@@ -88,12 +88,12 @@ class BMP3XXFIFO:
     data.alt  # Altitude
     ```
 
-    It builds on top of the lower level `read_fifo` method from the BMP3XX class and
+    It builds on top of the lower level `fifo_read` method from the BMP3XX class and
     performs automatic pulls from the device FIFO when needed.
 
     Note that it abstracts out some details from the user. If the user needs a more
     precise control of what frames are being received and what to do with them, then
-    the `read_fifo`method should be directly used instead and frames processed one
+    the `fifo_read` method should be directly used instead and frames processed one
     by one.
     """
 
@@ -222,7 +222,7 @@ class BMP3XXFIFO:
 
 
 class BMP3XX(Sensor):
-    """BMP3XX sensor, this class constructs the internal structure of the BMP3XX, no serial communication implemented"""
+    """BMP3XX sensor, this class constructs the internal structure of the BMP3XX."""
 
     STANDARD_SEA_LEVEL_PRESSURE_PA = const(101325)  # Standard sea level pressure
     frame_header_size = const(1)  # Size in bytes of a frame header

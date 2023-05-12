@@ -164,7 +164,9 @@ REGISTERS = (
         "address": const(0x1B),
         "permission": const("RW"),
         "size_bytes": const(1),
-        "help": const("controls sensor mode (sleep, forced, normal) and enables/disables press and temp sensors"),
+        "help": const(
+            "controls sensor mode (sleep, forced, normal) and enables/disables press and temp sensors"
+        ),
     },
     {
         "name": const("REG_OSR"),
@@ -346,13 +348,15 @@ def compensate_readings(self, value: int) -> Any:
         adc_press = value & 0xFFFFFF
         adc_temp = 8.43692e6
         return calculate_compensated_readings(self, (adc_press, adc_temp))[0]
-    elif self.name == 'altitude':
+    elif self.name == "altitude":
         adc_press = value & 0xFFFFFF
         adc_temp = value >> 24 & 0xFFFFFF
         pressure = calculate_compensated_readings(self, (adc_press, adc_temp))[0]
         return 44307.69 * (1 - (pressure / self.sensor._sea_level_pressure) ** 0.190284)
     else:
-        raise Exception(f"Unimplemented method for this type of InfoUnit: IU: {self.name}, Type: {self.iu_type}")
+        raise Exception(
+            f"Unimplemented method for this type of InfoUnit: IU: {self.name}, Type: {self.iu_type}"
+        )
 
 
 def calculate_compensated_readings(self, adc_values: tuple) -> tuple:
@@ -490,7 +494,9 @@ INFO_UNITS = (
         "size_bits": const(1),
         "shift": const(6),
         "unpack": bypass,
-        "help": const("Temperature data ready bit, 1 if temperature data is ready to be read."),
+        "help": const(
+            "Temperature data ready bit, 1 if temperature data is ready to be read."
+        ),
     },
     {
         "name": const("press_and_temp"),
@@ -525,7 +531,10 @@ INFO_UNITS = (
         "container": "REG_DATA_PRESS_AND_TEMP",
         "size_bits": const(48),
         "shift": const(0),
-        "unpack": lambda self, content: (content & 0x000000FFFFFF, content >> 24 & 0x000000FFFFFF),
+        "unpack": lambda self, content: (
+            content & 0x000000FFFFFF,
+            content >> 24 & 0x000000FFFFFF,
+        ),
         "help": const("Pressure and temperature ADC raw values."),
     },
     {
@@ -536,7 +545,9 @@ INFO_UNITS = (
         "size_bits": const(48),
         "shift": const(0),
         "unpack": compensate_readings,
-        "help": const("Altitude in meters. Should calibrate sensor before reading altitude."),
+        "help": const(
+            "Altitude in meters. Should calibrate sensor before reading altitude."
+        ),
     },
     {
         "name": const("sensortime"),
@@ -610,7 +621,9 @@ INFO_UNITS = (
         "size_bits": const(7 * 8),
         "shift": const(0),
         "unpack": parse_single_fifo_frame,
-        "help": const("FIFO 7 bytes of raw data (frames), should not be primary FIFO data access"),
+        "help": const(
+            "FIFO 7 bytes of raw data (frames), should not be primary FIFO data access"
+        ),
     },
     {
         "name": const("fifo_water_mark"),
@@ -646,7 +659,9 @@ INFO_UNITS = (
         "allowed": (0, 1),
         "pack": bypass,
         "unpack": bypass,
-        "help": const("FIFO full behavior, 0: discard old samples, 1: discard new samples"),
+        "help": const(
+            "FIFO full behavior, 0: discard old samples, 1: discard new samples"
+        ),
     },
     {
         "name": const("fifo_time_en"),
@@ -747,7 +762,9 @@ INFO_UNITS = (
         "allowed": (0, 1),
         "pack": bypass,
         "unpack": bypass,
-        "help": const("Enable interrupt latching for INT pin and INT_STATUS register. Datasheet 3.7.2"),
+        "help": const(
+            "Enable interrupt latching for INT pin and INT_STATUS register. Datasheet 3.7.2"
+        ),
     },
     {
         "name": const("fwtm_en"),
@@ -759,7 +776,9 @@ INFO_UNITS = (
         "allowed": (0, 1),
         "pack": bypass,
         "unpack": bypass,
-        "help": const("Enable FIFO watermark level reached interrupt (INT pin and INT_STATUS)"),
+        "help": const(
+            "Enable FIFO watermark level reached interrupt (INT pin and INT_STATUS)"
+        ),
     },
     {
         "name": const("ffull_en"),
@@ -833,7 +852,9 @@ INFO_UNITS = (
         "allowed": ("wdt_short", "wdt_long"),
         "pack": lambda self, value: {"wdt_short": 0, "wdt_long": 1}.get(value),
         "unpack": lambda self, content: {0: "wdt_short", 1: "wdt_long"}.get(content),
-        "help": const("I2c watchdog timer select (human readable): wdt_short: 1.25ms or wdt_long: 40ms"),
+        "help": const(
+            "I2c watchdog timer select (human readable): wdt_short: 1.25ms or wdt_long: 40ms"
+        ),
     },
     {
         "name": const("press_en"),
@@ -1037,7 +1058,9 @@ INFO_UNITS = (
         "size_bits": const(1),
         "shift": const(0),
         "unpack": lambda self, content: None,
-        "help": const("Config frame dummy response, inserted when a change in FIFO config happens"),
+        "help": const(
+            "Config frame dummy response, inserted when a change in FIFO config happens"
+        ),
     },
 )
 
@@ -1053,6 +1076,7 @@ CONFIG_PRESETS = {
         "osr_t": 1,
         "iir_filter": 2,
         "odr_sel": 80,
+        "data_select": "filtered",
     },
     "handheld_dev_dynamic": {
         "press_en": 1,
@@ -1062,6 +1086,7 @@ CONFIG_PRESETS = {
         "osr_t": 1,
         "iir_filter": 4,
         "odr_sel": 20,
+        "data_select": "filtered",
     },
     "weather_monitoring": {
         "press_en": 1,
@@ -1088,6 +1113,7 @@ CONFIG_PRESETS = {
         "osr_t": 2,
         "iir_filter": 4,
         "odr_sel": 40,
+        "data_select": "filtered",
     },
     "drone": {
         "press_en": 1,
@@ -1097,6 +1123,7 @@ CONFIG_PRESETS = {
         "osr_t": 1,
         "iir_filter": 2,
         "odr_sel": 20,
+        "data_select": "filtered",
     },
     "indoor_localization": {
         "press_en": 1,
@@ -1106,6 +1133,7 @@ CONFIG_PRESETS = {
         "osr_t": 1,
         "iir_filter": 4,
         "odr_sel": 1280,
+        "data_select": "filtered",
     },
     "init": {
         "press_en": 1,
