@@ -979,7 +979,7 @@ INFO_UNITS = (
     },
     {
         "name": const("cmd"),
-        "iu_type": const("command"),
+        "iu_type": const("config"),
         "container": "REG_CMD",
         "default": const("nop"),
         "size_bits": const(8),
@@ -1138,9 +1138,9 @@ CONFIG_PRESETS = {
     "init": {
         "press_en": 1,
         "temp_en": 1,
-        "mode": "normal",
         "osr_p": 1,
         "osr_t": 1,
         "odr_sel": 40,
+        "mode": "normal",
     },
 }
