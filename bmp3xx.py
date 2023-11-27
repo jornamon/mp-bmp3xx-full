@@ -76,7 +76,7 @@ class BMP3XXFIFO:
     hiding all the details of frame decoding and queue management. The user should be
     able to simply gather continuous data from the device FIFO using the `get` method.
 
-    The `get`method returns a FrameData named tuple that contains pressure, temperature
+    The `get` method returns a FrameData named tuple that contains pressure, temperature
     and altitude information when applicable or None. The named tuple elements can be
     accessed like this:
 
@@ -117,9 +117,8 @@ class BMP3XXFIFO:
             fifo_temp_en=1,
             fifo_time_en=0,
         )
-        self._sensor._fifo_auto_queue = (
-            self  # Update reference to this FIFO queue in the sensor
-        )
+        # Update reference to this FIFO queue in the sensor
+        self._sensor._fifo_auto_queue = self
         self._last_feed = time.ticks_ms()
         self.feed_queue()
 
@@ -135,7 +134,7 @@ class BMP3XXFIFO:
     def report_discarded(self, do_print=True):
         """Returns number of frames discarded since last report was given and the ticks_ms of the last discard.
 
-        Note that this are discarded frames in the BMP2XXFIFO, not in the device FIFO, you can learn if device
+        Note that this are discarded frames in the BMP3XXFIFO, not in the device FIFO, you can learn if device
         FIFO is full enabling the corresponding interrupts.
 
         If the BMP2XXFIFO is left to autofeed itself, it will never discard samples, but you might be loosing
@@ -160,6 +159,7 @@ class BMP3XXFIFO:
         self._rb.reset()
 
     def get_odr_config(self):
+        """Returns the ODR of the device FIFO in ms"""
         config = self._sensor.config_read("odr_sel", "fifo_subsampling")
         return config["odr_sel"] * config["fifo_subsampling"]
 
@@ -246,7 +246,7 @@ class BMP3XX(Sensor):
         self._sea_level_pressure = BMP3XX.STANDARD_SEA_LEVEL_PRESSURE_PA
 
         # Initializes a FIFO mirror buffer to dump sensor FIFO into during burst reads for later processing
-        self._fifo_mirror = bytearray(512 + 4)
+        self._fifo_mirror = bytearray(512 + 8)
         # Reference to BMP3XXFIFO object if exists
         self._fifo_auto_queue: BMP3XXFIFO | None = None
 
@@ -254,6 +254,10 @@ class BMP3XX(Sensor):
         self._init_data_structure()
         self._check_sensor()
         self._get_calibration_data()
+        # DEBUG: Initial sensor status
+        # print("\nINITIAL STATUS")
+        # self.config_read()
+        # print(self.data_read("conf_err"))
         # Basic config, bmp3xx boots up with sensors disabled.
         self.apply_config_preset("init")
 
@@ -289,7 +293,9 @@ class BMP3XX(Sensor):
             SensorData: named tuple with fields `press`, `temp` and `alt`.
         """
         if current_config is None:
-            current_config = self.config_read("press_en", "temp_en", "mode")
+            current_config = self.config_read(
+                "press_en", "temp_en", "mode", print_result=False
+            )
 
         press_and_temp = self.data_read("press_and_temp")["press_and_temp"]
 
@@ -351,7 +357,9 @@ class BMP3XX(Sensor):
             SensorData: Named tuple with all available information from the sensor.
                 Fields are: press, temp, alt
         """
-        current_config = self.config_read("press_en", "temp_en", "mode")
+        current_config = self.config_read(
+            "press_en", "temp_en", "mode", print_result=False
+        )
         # print('Entering forced_read with config', current_config)  # DEBUG
         if current_config["mode"] in ("normal", "forced"):
             # print('forced_read mode', mode)  # DEBUG
@@ -365,11 +373,11 @@ class BMP3XX(Sensor):
 
     def softreset(self):
         """Resets de device, user config is overwritten with default state"""
-        self._bus._write_reg(0x7E, 0xB6)
+        self._bus._write_reg(0x7E, b"\xB6")
 
     def fifo_flush(self):
         """Clears all data in FIFO, but does not change FIFO CONFIG"""
-        self._bus._write_reg(0x7E, 0xB0)
+        self._bus._write_reg(0x7E, b"\xB0")
 
     def fifo_length(self) -> int:
         """Returns current FIFO length in bytes (0-511)"""
@@ -393,9 +401,9 @@ class BMP3XX(Sensor):
         """
         if num_bytes == 0:
             # Read all FIFO
-            bytes_to_read = self.fifo_length() + 4
+            bytes_to_read = self.fifo_length() + 8
         else:
-            bytes_to_read = num_bytes + 4
+            bytes_to_read = num_bytes + 8
 
         buffer = memoryview(self._fifo_mirror)[0:bytes_to_read]
         self._bus._read_reg_into(0x14, buffer)
@@ -494,7 +502,7 @@ class BMP3XX(Sensor):
         else:
             return BMP3XXFIFO(self, max_frames)
 
-    def calc_odr(self, explain=True, **kwargs) -> tuple[float, Any]:
+    def calc_odr(self, explain=True, **kwargs) -> tuple[float, int, int]:
         """Calculates measure conversion time in ms.
 
         With no args, calculates it from current sensor config.
@@ -518,17 +526,20 @@ class BMP3XX(Sensor):
         else:
             if not all(arg in kwargs for arg in mandatory_args):
                 raise SensorError(
-                    "Not enough argument provided to calculate ODS. "
-                    "This function must be called without arguments, to calculate ODR from current Sensor config "
+                    "Not enough argument provided to calculate ODR. "
+                    "This method must be called without arguments, to calculate ODR from current Sensor config "
                     "or with all of this kwargs: 'press_en', 'temp_en', 'osr_p', 'osr_t'"
                 )
             else:
+                config = self.config_read(
+                    "odr_sel", "fifo_subsampling", print_result=False
+                )
                 press_en = kwargs["press_en"]
                 temp_en = kwargs["temp_en"]
                 osr_p = kwargs["osr_p"]
                 osr_t = kwargs["osr_t"]
-                odr_sel = None
-                fifo_subsampling = None
+                odr_sel = config["odr_sel"]
+                fifo_subsampling = config["fifo_subsampling"]
 
         conversion_time_ms = (
             0.234 + press_en * (0.392 + osr_p * 2.020) + temp_en * (0.163 + osr_t * 2.020)
@@ -543,10 +554,10 @@ class BMP3XX(Sensor):
             if odr_sel is not None:
                 print(f"Current FIFO ODR {odr_sel * fifo_subsampling}")
 
-        return (conversion_time_ms, odr_sel)
+        return (conversion_time_ms, odr_sel, min_odr)
 
     def calibrate_altimeter(self, **calib_info) -> None:  # type: ignore
-        """Calibrates the altimeter based in known local altitude or sea level pressure.
+        """Calibrates the altimeter based on known local altitude or sea level pressure.
 
         Needs one and only one of the arguments to use one of the two calibration methods
         (known local altitude or known local sea level pressure).
@@ -556,8 +567,8 @@ class BMP3XX(Sensor):
         Units are meters or Pascals (carful, most weather sites provide hPa or mbar)
 
         Args:
-            local_alt (float, optional): the known local altitude in meters. Defaults to None.
-            local_press (float, optional): the known local *sea level* pressure in Pascals. Defaults to None.
+            local_alt (float, optional): the known local altitude in meters.
+            local_press (float, optional): the known local *sea level* pressure in Pascals.
 
         Raises:
             SensorError: If wrong argument are provided.
@@ -622,9 +633,12 @@ class BMP3XX(Sensor):
         conf_err = self.data_read("conf_err").get("conf_err")
         self._debug_print("_check_sensor_config:", conf_err)  # fmt: skip
         if conf_err:
+            # Fall back to init config for the sensor to avoid further errors
+            self.apply_config_preset("init")
             raise SensorError(
                 "The requested configuration has triggered an error in the Sensor. "
                 "Consider applying config parameter in smaller groups to detect the conflicting values. "
                 "Most common cause is selecting temp and press oversampling config that takes more time "
                 "than the selected Output Data Rate (ODR). You can use the method `calc_odr` to check beforehand."
+                "Setting device back to initial configuration."
             )
