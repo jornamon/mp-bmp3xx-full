@@ -5,7 +5,7 @@ try:
 except ImportError:
     pass
 
-# DEBUG: Try to import loop profiler and set variable to control if it used
+# DEBUG: Try to import loop profiler and set variable to control if it's used
 # Only to allow using the driver with or without de loop profiler
 # Erase after complete debug
 try:
@@ -14,6 +14,8 @@ except ImportError:
     profiler_debug = False
 else:
     profiler_debug = True
+
+profiler_debug = False  # DEBUG: Remove after complete debug
 
 import math
 import time
@@ -622,7 +624,7 @@ class Sensor:
             )
             print()
 
-        time.sleep_ms(1)
+        time.sleep_ms(2)
         self._check_sensor_config(new_config)
         self._check_applied_config(new_config)
 
@@ -634,7 +636,7 @@ class Sensor:
         """To be overwritten in subclass if softreset of the device is possible"""
         pass
 
-    def apply_config_preset(self, preset: str = None) -> None:
+    def apply_config_preset(self, preset: str | None = None) -> None:
         """Applies a preset configuration template.
 
         Configuration templates are defined in the sensor _data_structure file
@@ -644,28 +646,28 @@ class Sensor:
         Raises:
             SensorError: If config template is not found
         """
-        if not preset:
-            print("Available presets are:")
-            print(f"{tuple(self._config_presets.keys())}")
-            return
-
-        if not preset or preset not in self._config_presets:
+        if preset is None or preset not in self._config_presets:
             raise SensorError(
-                "The requested preset does not exist. Available presets are: \n"
+                "The requested preset does not exist or none provided. Available presets are: \n"
                 f"{tuple(self._config_presets.keys())}"
             )
 
         self.softreset()
         time.sleep_ms(5)
         self._debug_print("apply_config_preset: Applying", preset)
-        preset_dict = self._config_presets.get(preset)
+        preset_dict = self._config_presets[preset]
         self.config_write(print_result=False, **preset_dict)
 
     def _check_applied_config(self, requested: dict) -> None:
         """Read current config to check if the requested config was correctly applied"""
         # TODO consider delete after testing or at least make it optional
         error = False
-        exceptions = ("forced",)  # Values that shouldn't be checked for some reason
+        exceptions = (
+            "forced",
+            "fifo_flush",
+            "softreset",
+            "nop",
+        )  # Values that shouldn't be checked for some reason
         returned = self.config_read(*requested.keys(), print_result=False)
         self._debug_print(f"_check_applied_config:")  # fmt: skip
         if self._debug_print_enable:
@@ -677,9 +679,12 @@ class Sensor:
                 )
                 error = True
         if error:
+            # Fall back to init config for the sensor to avoid further errors
+            self.apply_config_preset("init")
             raise SensorError(
                 "The requested configuration was not fully applied. "
                 "Details should precede this Traceback"
+                "Setting device back to initial configuration."
             )
 
     def _print_configs(self, **configs: dict[str, dict]):
@@ -741,6 +746,19 @@ class BUS:
     def __init__(self, **kwargs):
         self._i2c_addr: int
         self._spi_cs: Pin
+        self.sensor: Sensor
+
+    def int_to_bytes(self, n: int) -> bytes:
+        """Converts an integer to a bytearray of necessary length"""
+        n = int(n)
+        bit_length = 0
+        temp = n
+        while temp:
+            temp >>= 1
+            bit_length += 1
+
+        byte_length = (bit_length + 7) // 8
+        return n.to_bytes(byte_length, self.sensor._endianness)
 
     def _write_reg(self, reg_address, data):
         """Writes data into register"""
@@ -773,13 +791,13 @@ class I2CBUS(BUS):
     def _write_reg(self, reg_address: int, data: int | bytes):
         """Writes data into register
 
-        Accepts a bytes object or an int in range(0, 256)
+        Accepts a bytes object or an integer, which will be converted to bytes.
         """
         if isinstance(data, int):
-            self.i2c.writeto_mem(self._i2c_addr, reg_address, bytes(data,))  # fmt: skip
-        else:
-            for i, b in enumerate(data):
-                self.i2c.writeto_mem(self._i2c_addr, reg_address + i, bytes((b,)))
+            data = self.int_to_bytes(data)
+
+        for i, b in enumerate(data):
+            self.i2c.writeto_mem(self._i2c_addr, reg_address + i, bytes((b,)))
 
     def _read_reg(self, reg_address, length):
         """Reads from register n bytes and returns them"""
@@ -796,7 +814,6 @@ class I2CBUS(BUS):
 class SPIBUS(BUS):
     """Provides the methods to write and read registers from the device using SPI."""
 
-    # TODO Use Signal instead of Pin to allow CS active low or high
     def __init__(self, sensor: Sensor, spi, spi_cs: Pin | None = None, **kwargs):
         super().__init__(**kwargs)
         self.sensor = sensor
@@ -812,10 +829,11 @@ class SPIBUS(BUS):
     def _write_reg(self, reg_address: int, data: int | bytes):
         """Writes data into register
 
-        Accepts a bytes object or an int in range(0, 256)
+        Accepts a bytes object or an integer, which will be converted to bytes.
         """
         if isinstance(data, int):
-            data = bytes((data,))
+            data = self.int_to_bytes(data)
+
         self.spi_cs.value(0)  # Activate CS
         # Write byte per byte
         for i, b in enumerate(data):
