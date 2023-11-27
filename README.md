@@ -25,7 +25,7 @@ This driver **does not** intend to be small or super memory efficient. This does
 
 The driver is composed of three files: `sensor.py`, `bmp3xx.py` and `bmp3xx_data_structure.py`. All three must be copied to the board (`/` or `/lib`) in order for it to work.
 
-The best way to start is by following the provided examples [here](https://github.com/jornamon/mp-bmp3xx-full/tree/main/examples). Although it's still a work in progress, the code is also reasonably well documented, so it would be easy to take a look if you want to check out how it works or all available options that may not be covered in the examples.
+The best way to start is by following the provided [tutorial](./tutorial.md) and [examples](./examples). Although it's still a work in progress, the code is also reasonably well documented, so it would be easy to take a look if you want to check out how it works or all available options that may not be covered in the examples.
 
 ## Driver structure
 
@@ -134,389 +134,451 @@ Building a driver for a new (similar enough) device would consist in:
 This is the complete list of available InfoUnits. Config InfoUnits can be read (`config_read`) or written (`config_write`). Data InfoUnits can only be read with `data_read`. A little bit further down the whole list with a brief description, allowed values (when applicable) and a some extra info. For further explanations check the device datasheet.
 
 ### Config Info units
-    'fifo_water_mark', 'fifo_mode', 'fifo_stop_on_full', 'fifo_time_en', 'fifo_press_en', 'fifo_temp_en', 'fifo_subsampling', 'data_select', 'int_od', 'int_level', 'int_latch', 'fwtm_en', 'ffull_en', 'int_ds', 'drdy_en', 'spi3', 'i2c_wdt_en', 'i2c_wdt_sel', 'press_en', 'temp_en', 'mode', 'osr_p', 'osr_t', 'odr_sel', 'short_in', 'iir_filter'
-### Data Info units
-    'chip_id', 'rev_id', 'fatal_err', 'cmd_err', 'conf_err', 'cmd_rdy', 'drdy_press', 'drdy_temp', 'press_and_temp', 'press', 'temp', 'press_and_temp_adc', 'altitude', 'sensortime', 'por_detected', 'itf_act_pt', 'fwm_int', 'ffull_int', 'drdy', 'fifo_length', 'fifo_data'
 
- *** Information Unit ***
+```python
+'fifo_water_mark', 'fifo_mode', 'fifo_stop_on_full', 'fifo_time_en', 'fifo_press_en', 'fifo_temp_en', 'fifo_subsampling', 'data_select', 'int_od', 'int_level', 'int_latch', 'fwtm_en', 'ffull_en', 'int_ds', 'drdy_en', 'spi3', 'i2c_wdt_en', 'i2c_wdt_sel', 'press_en', 'temp_en', 'mode', 'osr_p', 'osr_t', 'odr_sel', 'short_in', 'iir_filter'
+```
+
+### Data Info units
+
+```python
+'chip_id', 'rev_id', 'fatal_err', 'cmd_err', 'conf_err', 'cmd_rdy', 'drdy_press', 'drdy_temp', 'press_and_temp', 'press', 'temp', 'press_and_temp_adc', 'altitude', 'sensortime', 'por_detected', 'itf_act_pt', 'fwm_int', 'ffull_int', 'drdy', 'fifo_length', 'fifo_data'
+```
+
+ ***Information Unit***
+
 - Name: chip_id
 - Type: data
 - Allowed: N/A
 - Register: REG_CHIP_ID
 - Help Chip ID stored in NVM
 
- *** Information Unit ***
+ ***Information Unit***
+
 - Name: rev_id
 - Type: data
 - Allowed: N/A
 - Register: REG_REV_ID
 - Help ASIC mask revision (minor)
 
- *** Information Unit ***
+ ***Information Unit***
+
 - Name: fatal_err
 - Type: data
 - Allowed: N/A
 - Register: REG_ERR_REG
 - Help Fatal error bit
 
- *** Information Unit ***
+ ***Information Unit***
+
 - Name: cmd_err
 - Type: data
 - Allowed: N/A
 - Register: REG_ERR_REG
 - Help Command error bit
 
- *** Information Unit ***
+ ***Information Unit***
+
 - Name: conf_err
 - Type: data
 - Allowed: N/A
 - Register: REG_ERR_REG
 - Help Configuration error bit
 
- *** Information Unit ***
+ ***Information Unit***
+
 - Name: cmd_rdy
 - Type: data
 - Allowed: N/A
 - Register: REG_STATUS
 - Help Command ready bit, 1 if ready to accept new command
 
- *** Information Unit ***
+ ***Information Unit***
+
 - Name: drdy_press
 - Type: data
 - Allowed: N/A
 - Register: REG_STATUS
 - Help Pressure data ready bit, 1 if pressure data is ready to be read.
 
- *** Information Unit ***
+ ***Information Unit***
+
 - Name: drdy_temp
 - Type: data
 - Allowed: N/A
 - Register: REG_STATUS
 - Help Temperature data ready bit, 1 if temperature data is ready to be read.
 
- *** Information Unit ***
+ ***Information Unit***
+
 - Name: press_and_temp
 - Type: data
 - Allowed: N/A
 - Register: REG_DATA_PRESS_AND_TEMP
 - Help Pressure (Pa) and temperature (C) compensated values.
 
- *** Information Unit ***
+ ***Information Unit***
+
 - Name: press
 - Type: data
 - Allowed: N/A
 - Register: REG_DATA_PRESS_AND_TEMP
 - Help Pressure (Pa) compensated value.
 
- *** Information Unit ***
+ ***Information Unit***
+
 - Name: temp
 - Type: data
 - Allowed: N/A
 - Register: REG_DATA_PRESS_AND_TEMP
 - Help Temperature (C) compensated value.
 
- *** Information Unit ***
+ ***Information Unit***
+
 - Name: press_and_temp_adc
 - Type: data
 - Allowed: N/A
 - Register: REG_DATA_PRESS_AND_TEMP
 - Help Pressure and temperature ADC raw values.
 
- *** Information Unit ***
+ ***Information Unit***
+
 - Name: altitude
 - Type: data
 - Allowed: N/A
 - Register: REG_DATA_PRESS_AND_TEMP
 - Help Altitude in meters. Should calibrate sensor before reading altitude.
 
- *** Information Unit ***
+ ***Information Unit***
+
 - Name: sensortime
 - Type: data
 - Allowed: N/A
 - Register: REG_SENSORTIME
 - Help Sensor Time
 
- *** Information Unit ***
+ ***Information Unit***
+
 - Name: por_detected
 - Type: data
 - Allowed: N/A
 - Register: REG_EVENT
 - Help 1 after device power up or softreset. Cleared on read
 
- *** Information Unit ***
+ ***Information Unit***
+
 - Name: itf_act_pt
 - Type: data
 - Allowed: N/A
 - Register: REG_EVENT
 - Help 1 when serial interface transaction occurs during a pressure or temperature conversion. Cleared on read
 
- *** Information Unit ***
+ ***Information Unit***
+
 - Name: fwm_int
 - Type: data
 - Allowed: N/A
 - Register: REG_INT_STATUS
 - Help FIFO watermark interrupt status
 
- *** Information Unit ***
+ ***Information Unit***
+
 - Name: ffull_int
 - Type: data
 - Allowed: N/A
 - Register: REG_INT_STATUS
 - Help FIFO full interrupt status
 
- *** Information Unit ***
+ ***Information Unit***
+
 - Name: drdy
 - Type: data
 - Allowed: N/A
 - Register: REG_INT_STATUS
 - Help Data Ready interrupt status
 
- *** Information Unit ***
+ ***Information Unit***
+
 - Name: fifo_length
 - Type: data
 - Allowed: N/A
 - Register: REG_FIFO_LENGTH
 - Help FIFO length in bytes 0-511 (9-bits)
 
- *** Information Unit ***
+ ***Information Unit***
+
 - Name: fifo_data
 - Type: data
 - Allowed: N/A
 - Register: REG_FIFO_DATA
 - Help FIFO 7 bytes of raw data (frames), should not be primary FIFO data access
 
- *** Information Unit ***
+ ***Information Unit***
+
 - Name: fifo_water_mark
 - Type: config
 - Allowed: range(0, 512)
 - Register: REG_FIFO_WTM
 - Help FIFO watermark level in bytes 0-511 (9-bit)
 
- *** Information Unit ***
+ ***Information Unit***
+
 - Name: fifo_mode
 - Type: config
 - Allowed: (0, 1)
 - Register: REG_FIFO_CONFIG_1
 - Help Enables/Disables (1/0) FIFO
 
- *** Information Unit ***
+ ***Information Unit***
+
 - Name: fifo_stop_on_full
 - Type: config
 - Allowed: (0, 1)
 - Register: REG_FIFO_CONFIG_1
 - Help FIFO full behavior, 0: discard old samples, 1: discard new samples
 
- *** Information Unit ***
+ ***Information Unit***
+
 - Name: fifo_time_en
 - Type: config
 - Allowed: (0, 1)
 - Register: REG_FIFO_CONFIG_1
 - Help Enable return of sensortime frames in FIFO reads
 
- *** Information Unit ***
+ ***Information Unit***
+
 - Name: fifo_press_en
 - Type: config
 - Allowed: (0, 1)
 - Register: REG_FIFO_CONFIG_1
 - Help Enable return of pressure frames in FIFO reads
 
- *** Information Unit ***
+ ***Information Unit***
+
 - Name: fifo_temp_en
 - Type: config
 - Allowed: (0, 1)
 - Register: REG_FIFO_CONFIG_1
 - Help Enable return of temperature frames in FIFO reads
 
- *** Information Unit ***
+ ***Information Unit***
+
 - Name: fifo_subsampling
 - Type: config
 - Allowed: (1, 2, 4, 8, 16, 32, 64, 128)
 - Register: REG_FIFO_CONFIG_2
 - Help FIFO subsampling factor (human readable). Datasheet 3.6.2
 
- *** Information Unit ***
+ ***Information Unit***
+
 - Name: data_select
 - Type: config
 - Allowed: ('filtered', 'unfiltered')
 - Register: REG_FIFO_CONFIG_2
 - Help FIFO data source (human readable), filtered or unfiltered
 
- *** Information Unit ***
+ ***Information Unit***
+
 - Name: int_od
 - Type: config
 - Allowed: ('push-pull', 'open-drain')
 - Register: REG_INT_CTRL
 - Help Interrupt output type (human readable), push-pull or open-drain
 
- *** Information Unit ***
+ ***Information Unit***
+
 - Name: int_level
 - Type: config
 - Allowed: (0, 1)
 - Register: REG_INT_CTRL
 - Help Interrupt active level 1: high, 0: low
 
- *** Information Unit ***
+ ***Information Unit***
+
 - Name: int_latch
 - Type: config
 - Allowed: (0, 1)
 - Register: REG_INT_CTRL
 - Help Enable interrupt latching for INT pin and INT_STATUS register. Datasheet 3.7.2
 
- *** Information Unit ***
+ ***Information Unit***
+
 - Name: fwtm_en
 - Type: config
 - Allowed: (0, 1)
 - Register: REG_INT_CTRL
 - Help Enable FIFO watermark level reached interrupt (INT pin and INT_STATUS)
 
- *** Information Unit ***
+ ***Information Unit***
+
 - Name: ffull_en
 - Type: config
 - Allowed: (0, 1)
 - Register: REG_INT_CTRL
 - Help Enable FIFO full interrupt (INT pin and INT_STATUS)
 
- *** Information Unit ***
+ ***Information Unit***
+
 - Name: int_ds
 - Type: config
 - Allowed: (0, 1)
 - Register: REG_INT_CTRL
 - Help int_ds 0: low, 1: high
 
- *** Information Unit ***
+ ***Information Unit***
+
 - Name: drdy_en
 - Type: config
 - Allowed: (0, 1)
 - Register: REG_INT_CTRL
 - Help Enable data ready interrupt (INT pin and INT_STATUS)
 
- *** Information Unit ***
+ ***Information Unit***
+
 - Name: spi3
 - Type: config
 - Allowed: ('spi3', 'spi4')
 - Register: REG_IF_CONF
 - Help Configure spi interface mode (human readable), spi4 or spi3 for 4-wire and 3-wire configurations
 
- *** Information Unit ***
+ ***Information Unit***
+
 - Name: i2c_wdt_en
 - Type: config
 - Allowed: (0, 1)
 - Register: REG_IF_CONF
 - Help Enable i2c watchdog timer
 
- *** Information Unit ***
+ ***Information Unit***
+
 - Name: i2c_wdt_sel
 - Type: config
 - Allowed: ('wdt_short', 'wdt_long')
 - Register: REG_IF_CONF
 - Help I2c watchdog timer select (human readable): wdt_short: 1.25ms or wdt_long: 40ms
 
- *** Information Unit ***
+ ***Information Unit***
+
 - Name: press_en
 - Type: config
 - Allowed: (0, 1)
 - Register: REG_PWR_CTRL
 - Help Enable/Disable (1/0) pressure sensor
 
- *** Information Unit ***
+ ***Information Unit***
+
 - Name: temp_en
 - Type: config
 - Allowed: (0, 1)
 - Register: REG_PWR_CTRL
 - Help Enable/Disable (1/0) temperature sensor
 
- *** Information Unit ***
+ ***Information Unit***
+
 - Name: mode
 - Type: config
 - Allowed: ('sleep', 'forced', 'normal')
 - Register: REG_PWR_CTRL
 - Help Controls sensor power mode: sleep, forced, normal
 
- *** Information Unit ***
+ ***Information Unit***
+
 - Name: osr_p
 - Type: config
 - Allowed: (1, 2, 4, 8, 16, 32)
 - Register: REG_OSR
 - Help Pressure oversampling (human readable). Datasheet 3.4.4
 
- *** Information Unit ***
+ ***Information Unit***
+
 - Name: osr_t
 - Type: config
 - Allowed: (1, 2, 4, 8, 16, 32)
 - Register: REG_OSR
 - Help Temperature oversampling (human readable). Datasheet 3.4.4
 
- *** Information Unit ***
+ ***Information Unit***
+
 - Name: odr_sel
 - Type: config
 - Allowed: (5, 10, 20, 40, 80, 160, 320, 640, 1280, 5120, 10240, 20480, 40960, 81920, 163840, 327680, 655360)
 - Register: REG_ODR
 - Help Output data rate (human readable). Sampling period in ms, which is more natural for event loops. Datasheet 4.3.20
 
- *** Information Unit ***
+ ***Information Unit***
+
 - Name: short_in
 - Type: config
 - Allowed: (0, 1)
 - Register: REG_CONFIG
 - Help short_in
 
- *** Information Unit ***
+ ***Information Unit***
+
 - Name: iir_filter
 - Type: config
 - Allowed: (0, 2, 4, 8, 16, 32, 64, 128)
 - Register: REG_CONFIG
 - Help IIR filter coefficient (human readable). Datasheet  3.4.3
 
- *** Information Unit ***
+ ***Information Unit***
+
 - Name: cmd
 - Type: command
 - Allowed: ('nop', 'fifo_flush', 'softreset')
 - Register: REG_CMD
 - Help Receives a command to execute
 
- *** Information Unit ***
+ ***Information Unit***
+
 - Name: frameiu_press_and_temp
 - Type: frame
 - Allowed: N/A
 - Register: FRAME_PRESS_AND_TEMP
 - Help Pressure (Pa) and temperature (C) compensated values
 
- *** Information Unit ***
+ ***Information Unit***
+
 - Name: frameiu_temp
 - Type: frame
 - Allowed: N/A
 - Register: FRAME_TEMP
 - Help Temperature (C) compensated value
 
- *** Information Unit ***
+ ***Information Unit***
+
 - Name: frameiu_press
 - Type: frame
 - Allowed: N/A
 - Register: FRAME_PRESS
 - Help Temperature (C) compensated value
 
- *** Information Unit ***
+ ***Information Unit***
+
 - Name: frameiu_sensortime
 - Type: frame
 - Allowed: N/A
 - Register: FRAME_SENSORTIME
 - Help Sensor Time
 
- *** Information Unit ***
+ ***Information Unit***
+
 - Name: frameiu_empty
 - Type: frame
 - Allowed: N/A
 - Register: FRAME_EMPTY
 - Help Empty frame dummy response
 
- *** Information Unit ***
+ ***Information Unit***
+
 - Name: frameiu_error
 - Type: frame
 - Allowed: N/A
 - Register: FRAME_ERROR
 - Help Error frame dummy response
 
- *** Information Unit ***
+ ***Information Unit***
+
 - Name: frameiu_config_change
 - Type: frame
 - Allowed: N/A
