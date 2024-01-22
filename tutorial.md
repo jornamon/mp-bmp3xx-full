@@ -363,44 +363,44 @@ The tools that allow you to read and write information from the device are very 
 
 Also, returned data is a dictionary, which is not always the most convenient, especially if you are only interested in one of the values.
 
-All this is intentional, to be able to use only one set of tools to manipulate and read anything on the device (and potentially other devices), but if it doesn't feel confortable to you, you can write some user wraps around those tools to make your life easier. Each one will take you just a few seconds and a couple of lines of code.
+All this is intentional, to be able to use only one set of tools to manipulate and read anything on the device (and potentially other devices), but if it doesn't feel confortable to you, you can write some user wrappers around those tools to make your life easier. Each one will take you just a few seconds and a couple of lines of code.
 
 ## Wraping data_read
 
-The following method wraps around the InfoUnit `drdy_press` which is a flag that indicates that a fresh new pressure sample is available to read. If you are going to use this a lot, it will take you about ten seconds to write it, and you will save a lot of time in the future.
+The following method acts as a wrapper around the InfoUnit `drdy_press`, a flag that indicates that a fresh new pressure sample is available for reading. Writing this method will take about ten seconds, but it will save you a lot of time in the future if you plan to use it frequently.
 
 ```python
 def press_data_ready(sensor: BMP3XX):
     return sensor.data_read("drdy_press", print_result=False)["drdy_press"]
 ```
 
-[→ 04-user_wraps.py](./examples/04-user_wraps.py)
+[→ 04-user_wrappers.py](./examples/04-user_wrappers.py)
 
 Now you can use `press_data_ready(sensor)` to check if there is new pressure data available instead of `sensor.data_read("drdy_press")["drdy_press"]` if you prefer.
 
 ## Wraping config_read
 
-We can do the same with `config_read`. The following method wraps around the InfoUnit `osr_p` which is the pressure oversampling. It returns the current pressure oversampling value.
+We can do the same with `config_read`. The following method wrappers around the InfoUnit `osr_p` which is the pressure oversampling. It returns the current pressure oversampling value.
 
 ```python
 def get_press_oversampling(sensor: BMP3XX):
     return sensor.config_read("osr_p", print_result=False)["osr_p"]
 ```
 
-[→ 04-user_wraps.py](./examples/04-user_wraps.py)
+[→ 04-user_wrappers.py](./examples/04-user_wrappers.py)
 
 Now you can use `get_press_oversampling(sensor)` to check the current pressure oversampling instead of `sensor.config_read("osr_p")["osr_p"]` if you prefer.
 
 ## Wraping config_write
 
-We can do the same with `config_write`. The following method wraps around the InfoUnit `osr_p` which is the pressure oversampling. It sets the pressure oversampling to the provided value.
+We can do the same with `config_write`. The following method wrappers around the InfoUnit `osr_p` which is the pressure oversampling. It sets the pressure oversampling to the provided value.
 
 ```python
 def set_press_oversampling(sensor: BMP3XX, value: int):
     sensor.config_write(osr_p=value, print_result=False)
 ```
 
-[→ 04-user_wraps.py](./examples/04-user_wraps.py)
+[→ 04-user_wrappers.py](./examples/04-user_wrappers.py)
 
 Now you can use `set_press_oversampling(sensor, value)` to set the pressure oversampling instead of `sensor.config_write(osr_p=value)` if you prefer.
 
@@ -427,7 +427,7 @@ If you don't want to decide each relevant parameter, you can use the available c
 Config templates are defined in `bmp3xx_data_structure.py module`. Most are recommended configs by the manufacturer for certain applications, but you can also define your own.
 
 To apply one, you just use the `apply_config_preset` method.
-To see the available presets, you can inspect the bmp3xx_data_structure` module, If you call the method without arguments, it will print the available presets.
+To see the available presets, you can inspect the bmp3xx_data_structure` module. If you call the method without arguments, it will print the available presets.
 
 ```python
 # This throws an exception, but offers a list of available presets
@@ -488,14 +488,13 @@ This will return the altitude in meters (m), and will work fine for relative alt
 
 This can be done using the `calibrate_altimeter` method, which calibrates the altimeter based on known local altitude **or** sea level pressure.
 
-To calibrate the altimeter you can use either the correct local sea level pressure or the correct local altitude. Note that local sea level pressure is NOT the local pressure at current altitude,
-but the pressure that would be measured at sea level. It can be obtained in some weather sites. Units are meters (for altitude) or Pascals (carful, most weather sites provide hPa or mbar).
+To calibrate the altimeter you can use either the correct local sea level pressure or the correct local altitude. Note that local sea level pressure is NOT the local pressure at current altitude, but the pressure that would be measured at sea level. It can be obtained in some weather sites. Units are meters (for altitude) or Pascals (carful, most weather sites provide hPa or mbar).
 
 I find easier to use the local altitude, which is usually easier to know and does not vary with the weather. Use it whenever you can.
 
 Either way, you must provide *one and only one* of the arguments to use one of the two calibration methods:
 
-- local_alt (float, optional): the known local altitude in meters. 
+- local_alt (float, optional): the known local altitude in meters.
 - local_press (float, optional): the known local *sea level* pressure in Pascals.
 
 ```python
@@ -538,8 +537,7 @@ If you move the sensor vertically during this phase you will see more change.
 
 # Output Data Rate (ODR)
 
-By default, the driver put the sensor in normal mode. In that mode, the sensor takes measurements at a fixed rate (Output Data Rate, ODR) and the driver returns the contents of the last sample
-when asked for a read.
+By default, the driver put the sensor in normal mode. In that mode, the sensor takes measurements at a fixed rate (Output Data Rate, ODR) and the driver returns the contents of the last sample when asked for a read.
 
 The ODR can be configured in the `odr_sel` InfoUnit, using the  `config_write` method. It must be one of 5, 10, 20, 40, 80, 160, 320, 640, 1280, 5120, 10240, 20480, 40960, 81920, 163840, 327680, 655360 milliseconds.
 
@@ -665,7 +663,7 @@ This method should also be used when working in forced mode (the device sleeps u
 asked for another forced measure) unless you plan to handle manually the transitions
 between forced and sleep modes. See Datasheet 3.3 Power Modes for details.
 
-Note that in forced mode, IIR filter does not work.
+Note that in forced mode, the IIR filter does not work.
 
 First, we will set up the device with a ODR and other parameters that allows us to notice the difference. ODR is the time  between measurements, in milliseconds. It must be one of the following values: 5, 10, 20, 40, 80, 160, 320, 640, 1280, 5120, 10240, 20480, 40960, 81920, 163840, 327680, 655360.
 
@@ -740,7 +738,7 @@ This method will work in both *normal* and *forced* mode. In normal mode, it wil
 
 In both cases, it will return the contents of the last new reading. After a measurement in forced mode, the sensor will go back to sleep. `forced_read()` method changes the mode again to forced whenever you use it, so you don't have to worry about it.
 
-Understand the difference between normal and forced mode. In normal mode, the sensor is always measuring, while in forced mode it sleeps until you ask for a measurement. In normal mode, the ODR is the time between measurement. This guarantees that measurements are taken at regular intervals, which is very important if you plan to apply any kind of digital filtering to the received samples.
+Understand the difference between normal and forced mode. In normal mode, the sensor is always measuring, while in forced mode it sleeps until you ask for a measurement. In normal mode, the ODR is the time between measurement. This guarantees that measurements are taken at regular intervals, which is **very important if you plan to apply any kind of digital filtering to the received samples**.
 
 In normal mode (without using forced_read), the driver will return the contents of the last sample immediately, even if it's the same data. If in doubt, use normal mode with an adequate ODR for the application, but forced mode may be useful in some cases. If you need to take measurements at irregular intervals, you can use forced mode and let the sensor sleep between measurements making it more energy efficient. Also ODR is limited to 655360ms (10.9 minutes) so if you need to take measurements  at longer intervals, you can use forced mode too.
 
@@ -754,7 +752,7 @@ Since the filter is in the BMP3XX itself, you get this post processing for free,
 
 The filter is configured with the `iir_filter` InfoUnit, which can be set to one of this values: 0, 2, 4, 8, 16, 32, 64, 128. 0 means the output is unfiltered and any other value will indicate the order of the filter, the higher the order the smoother the output, but also the slower the response to real changes in temperature or pressure.
 
-The filter only works in **normal mode**, and gets cleared every time the config changes so that it doesn't make sense to keep adding samples to the filter that are not related to each other (for example if you change filter order or activate/deactivate the pressure or temperature sensor). You need to wait for the number of samples indicated by the filter order to get a stable output.
+The filter only works in **normal mode**, and gets cleared every time the config changes because it doesn't make sense to keep adding samples to the filter that are not related to each other (for example if you change filter order or activate/deactivate the pressure or temperature sensor). You need to wait for the number of samples indicated by the filter order to get a stable output.
 
 See section 3.4.3 of the Datasheet for details on the implementation of the filter.
 
@@ -934,7 +932,7 @@ Like with the previous method, I just want to let you know is there, but don't u
 
 ### fifo_debug()
 
-While being for debugging, it can be very handy when learning how the FIFO works, especially to see how the device handles config changes, errors, partial transmissions and FIFO over reads. It shows a graphic representation of the type of frames inside the FIFO.
+While being for debugging, it can be very handy when learning how the FIFO works, especially to see how the device handles config changes, errors, partial transmissions and FIFO over reads. It shows a graphical representation of the type of frames inside the FIFO.
 
 ```python
 # Use fifo_debug() to see a 'graphical' representation of the FIFO contents
@@ -1038,7 +1036,7 @@ Sensortime frames: 1
 Other frames: 2
 ```
 
-This is a very simple example, but you can see how you can process the frames as they come and do whatever you want with them. Depending on your application, this frame by frame processing may be necessary or note. For example, if you plan to dynamically change the FIFO configuration, you will need to process the config change frames to know what has changed and act accordingly.
+This is a very simple example, but you can see how you can process the frames as they come and do whatever you want with them. Depending on your application, this frame by frame processing may be necessary or not. For example, if you plan to dynamically change the FIFO configuration, you will need to process the config change frames to know what has changed and act accordingly.
 
 This method is simple yet allows the user full control over what to do with every frame. Just remember that you must periodically read the FIFO to avoid overflows.
 
@@ -1052,7 +1050,7 @@ It builds on top of the lower level `fifo_read` method from the BMP3XX class and
 
 Note that it abstracts out some details from the user. If the user needs a more precise control of what frames are being received and what to do with them, then the `fifo_read` method should be directly used instead and frames processed one by one.
 
-The `get()` method returns a `FrameData` named tuple that contains pressure, temperature and altitude information when applicable or `None`.
+The `get()` method returns a `SensorData` named tuple that contains pressure, temperature and altitude information when applicable or `None`.
 
 ```python
 sensor.fifo_flush()  # Clear FIFO
@@ -1092,3 +1090,8 @@ If the user takes care of the `None` values returned by `get()` and does not try
 This example can handle the queue indefinitely, printing the data as it comes:
 
 ```python
+
+TODO more details about fifo_auto_queue
+TODO Interrupts
+TODO Complete example using interrupst and queue
+
