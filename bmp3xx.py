@@ -192,20 +192,12 @@ class BMP3XXFIFO:
             if frame.type == "FRAME_PRESS_AND_TEMP":
                 press = frame.payload[0]
                 temp = frame.payload[1]
-                alt = (
-                    self._sensor.altitude_from_pressure(press)
-                    if self._enable_alt
-                    else None
-                )
+                alt = self._sensor.altitude_from_pressure(press) if self._enable_alt else None
                 self._rb.put(BMP3XX.sensor_data(press, temp, alt))
             elif frame.type == "FRAME_PRESS":
                 press = frame.payload
                 temp = None
-                alt = (
-                    self._sensor.altitude_from_pressure(press)
-                    if self._enable_alt
-                    else None
-                )
+                alt = self._sensor.altitude_from_pressure(press) if self._enable_alt else None
                 self._rb.put(BMP3XX.sensor_data(press, temp, alt))
             elif frame.type == "FRAME_TEMP":
                 press = None
@@ -293,26 +285,20 @@ class BMP3XX(Sensor):
             SensorData: named tuple with fields `press`, `temp` and `alt`.
         """
         if current_config is None:
-            current_config = self.config_read(
-                "press_en", "temp_en", "mode", print_result=False
-            )
+            current_config = self.config_read("press_en", "temp_en", "mode", print_result=False)
 
         press_and_temp = self.data_read("press_and_temp")["press_and_temp"]
 
         press = press_and_temp[0] if current_config["press_en"] else None
         temp = press_and_temp[1] if current_config["temp_en"] else None
-        alt = (
-            self.altitude_from_pressure(press)
-            if press is not None and enable_alt
-            else None
-        )
+        alt = self.altitude_from_pressure(press) if press is not None and enable_alt else None
 
         sd = BMP3XX.sensor_data(press, temp, alt)
 
         return sd
 
     def altitude_from_pressure(self, press):
-        return 44307.69 * (1 - (press / self._sea_level_pressure) ** 0.190284)
+        return 44330.77 * (1 - (press / self._sea_level_pressure) ** 0.190263)
 
     def _wait_data_ready(self, current_config: dict | None = None):
         """Waits until new sensor data is available.
@@ -357,9 +343,7 @@ class BMP3XX(Sensor):
             SensorData: Named tuple with all available information from the sensor.
                 Fields are: press, temp, alt
         """
-        current_config = self.config_read(
-            "press_en", "temp_en", "mode", print_result=False
-        )
+        current_config = self.config_read("press_en", "temp_en", "mode", print_result=False)
         # print('Entering forced_read with config', current_config)  # DEBUG
         if current_config["mode"] in ("normal", "forced"):
             # print('forced_read mode', mode)  # DEBUG
@@ -422,14 +406,11 @@ class BMP3XX(Sensor):
             {
                 d[0]: d[1]
                 for d in (
-                    (frame.name, frame.representation)
-                    for frame in self._sensor_frames.values()
+                    (frame.name, frame.representation) for frame in self._sensor_frames.values()
                 )
             }
         )
-        stats.update(
-            {key: 0 for key in (frame.name for frame in self._sensor_frames.values())}
-        )
+        stats.update({key: 0 for key in (frame.name for frame in self._sensor_frames.values())})
         last_byte = self._fifo_sync(num_bytes)
         stats.update(
             {"INVALID": 0, "TOTAL ERRORS": 0, "TOTAL FRAMES": 0, "TOTAL BYTES": last_byte}
@@ -531,9 +512,7 @@ class BMP3XX(Sensor):
                     "or with all of this kwargs: 'press_en', 'temp_en', 'osr_p', 'osr_t'"
                 )
             else:
-                config = self.config_read(
-                    "odr_sel", "fifo_subsampling", print_result=False
-                )
+                config = self.config_read("odr_sel", "fifo_subsampling", print_result=False)
                 press_en = kwargs["press_en"]
                 temp_en = kwargs["temp_en"]
                 osr_p = kwargs["osr_p"]
@@ -573,17 +552,13 @@ class BMP3XX(Sensor):
         Raises:
             SensorError: If wrong argument are provided.
         """
-        if len(calib_info) == 1 and any(
-            ("local_alt" in calib_info, "local_press" in calib_info)
-        ):
+        if len(calib_info) == 1 and any(("local_alt" in calib_info, "local_press" in calib_info)):
             if "local_press" in calib_info:
                 self._sea_level_pressure = calib_info["local_press"]
                 self._debug_print(f"calibrate_altimeter: Updating local sea level pressure with {calib_info['local_press']} Pa")  # fmt: skip
             else:
                 pressure = self.data_read("press").get("press")
-                local_slp = pressure / (1 - calib_info["local_alt"] / 44307.69) ** (
-                    5.2553
-                )
+                local_slp = pressure / (1 - calib_info["local_alt"] / 44307.69) ** (5.2553)
                 self._sea_level_pressure = local_slp
                 self._debug_print(f"calibrate_altimeter: Updating local sea level pressure with {local_slp}Pa, based in local known altitude {calib_info['local_alt']}m")  # fmt: skip
         else:
