@@ -1093,5 +1093,5 @@ This example can handle the queue indefinitely, printing the data as it comes:
 
 TODO more details about fifo_auto_queue
 TODO Interrupts
-TODO Complete example using interrupst and queue
+TODO Complete example using interrupts and queue
 
